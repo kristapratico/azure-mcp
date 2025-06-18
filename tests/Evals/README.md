@@ -16,6 +16,8 @@ This directory contains evaluation scripts for the Azure MCP project. This prima
   - `AZURE_FOUNDRY_RESOURCE_GROUP`
   - `AZURE_FOUNDRY_PROJECT_NAME`
 
+The latter 3 variables are used to connect to the Azure Foundry project where the evaluation results will be stored.
+
 ## Files
 
 - `run.py`: Main entry point for running evaluation scripts.
