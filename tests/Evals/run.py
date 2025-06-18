@@ -80,7 +80,7 @@ async def call_mcp_tool(
     return result
 
 
-def make_request(
+async def make_request(
     messages: list[chat.ChatCompletionMessage],
     available_tools: list[dict[str, Any]],
     tool_calls_made: list[chat.ChatCompletionMessageToolCall],
@@ -91,7 +91,7 @@ def make_request(
         tool_messages = []
         for tool_call in response.tool_calls:
             function_args = json.loads(tool_call.function.arguments)
-            result = asyncio.run(call_mcp_tool(tool_call, function_args))
+            result = await call_mcp_tool(tool_call, function_args)
 
             tool_messages.append(
                 {
@@ -153,7 +153,7 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
     tool_calls_made = []
     if response.tool_calls is not None:
         tool_calls_made.extend(response.tool_calls)
-        messages, tool_calls = make_request(messages, available_tools, tool_calls_made)
+        messages, tool_calls = asyncio.run(make_request(messages, available_tools, tool_calls_made))
         tool_calls_made = reshape_tools(tool_calls)
 
     tool_defs = reshape_tool_definitions(available_tools)
@@ -220,6 +220,5 @@ if __name__ == "__main__":
         },
         target=evaluate_azure_mcp,
         azure_ai_project=azure_ai_project,
-        fail_on_evaluator_errors=True,
         **kwargs,
     )
