@@ -14,7 +14,11 @@ from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
 from mcp.types import CallToolResult
 from azure.ai.evaluation import evaluate, ToolCallAccuracyEvaluator, AzureAIProject
-from azure.identity import AzurePipelinesCredential, DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import (
+    AzurePipelinesCredential,
+    DefaultAzureCredential,
+    get_bearer_token_provider,
+)
 
 
 dotenv.load_dotenv()
@@ -31,12 +35,18 @@ model_config: dict[str, str] = {
     "api_version": API_VERSION,
 }
 
-token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
+)
 client = AzureOpenAI(
-    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"], api_version=API_VERSION, azure_ad_token_provider=token_provider
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    api_version=API_VERSION,
+    azure_ad_token_provider=token_provider,
 )
 
-server_params = StdioServerParameters(command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None)
+server_params = StdioServerParameters(
+    command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None
+)
 
 followup_answers = pathlib.Path(__file__).parent / "followup.json"
 with open(str(followup_answers), "r") as f:
@@ -47,7 +57,9 @@ def in_ci() -> bool:
     return os.getenv("TF_BUILD") is not None
 
 
-def reshape_tools(tools: list[chat.ChatCompletionMessageToolCall]) -> list[dict[str, Any]]:
+def reshape_tools(
+    tools: list[chat.ChatCompletionMessageToolCall],
+) -> list[dict[str, Any]]:
     return [
         {
             "type": "tool_call",
@@ -59,10 +71,17 @@ def reshape_tools(tools: list[chat.ChatCompletionMessageToolCall]) -> list[dict[
     ]
 
 
-def reshape_tool_definitions(available_tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def reshape_tool_definitions(
+    available_tools: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     tools = [tool["function"] for tool in available_tools]
     return [
-        {"name": tool["name"], "description": tool["description"], "parameters": tool["parameters"], "type": "function"}
+        {
+            "name": tool["name"],
+            "description": tool["description"],
+            "parameters": tool["parameters"],
+            "type": "function",
+        }
         for tool in tools
     ]
 
@@ -103,7 +122,9 @@ async def make_request(
             )
         messages.extend(tool_messages)
 
-        response = client.chat.completions.create(model=MODEL, messages=messages, tools=available_tools)
+        response = client.chat.completions.create(
+            model=MODEL, messages=messages, tools=available_tools
+        )
         if response.choices[0].message.tool_calls:
             tool_calls_made.extend(response.choices[0].message.tool_calls)
         answer = response.choices[0].message.content
@@ -122,7 +143,11 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
     while True:
         attempts += 1
         response = (
-            client.chat.completions.create(model=MODEL, messages=messages, tools=available_tools).choices[0].message
+            client.chat.completions.create(
+                model=MODEL, messages=messages, tools=available_tools
+            )
+            .choices[0]
+            .message
         )
 
         messages.append(response)
@@ -153,7 +178,9 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
     tool_calls_made = []
     if response.tool_calls is not None:
         tool_calls_made.extend(response.tool_calls)
-        messages, tool_calls = asyncio.run(make_request(messages, available_tools, tool_calls_made))
+        messages, tool_calls = asyncio.run(
+            make_request(messages, available_tools, tool_calls_made)
+        )
         tool_calls_made = reshape_tools(tool_calls)
 
     tool_defs = reshape_tool_definitions(available_tools)
@@ -161,11 +188,15 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
     return {
         "query": query,
         "tool_calls": tool_calls_made,
-        "response": [msg.model_dump() if not isinstance(msg, dict) else msg for msg in messages],
+        "response": [
+            msg.model_dump() if not isinstance(msg, dict) else msg for msg in messages
+        ],
         "tool_definitions": tool_defs,
         "expected": expected_tool_calls,
         "called_expected": any(
-            actual["name"] == expected for actual in tool_calls_made for expected in expected_tool_calls
+            actual["name"] == expected
+            for actual in tool_calls_made
+            for expected in expected_tool_calls
         ),
         "num_tool_calls_actual": len(tool_calls_made),
         "num_tool_calls_expected": len(expected_tool_calls),
@@ -181,7 +212,11 @@ async def get_tools() -> list[dict[str, Any]]:
             available_tools = [
                 {
                     "type": "function",
-                    "function": {"name": tool.name, "description": tool.description, "parameters": tool.inputSchema},
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.inputSchema,
+                    },
                 }
                 for tool in tools.tools
             ]
@@ -210,7 +245,9 @@ if __name__ == "__main__":
     else:
         kwargs = {}
 
-    tool_call_accuracy = ToolCallAccuracyEvaluator(model_config=model_config, is_reasoning_model=True)
+    tool_call_accuracy = ToolCallAccuracyEvaluator(
+        model_config=model_config, is_reasoning_model=True
+    )
 
     test_file = pathlib.Path(__file__).parent / "data.jsonl"
     result = evaluate(

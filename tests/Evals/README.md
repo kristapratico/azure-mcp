@@ -2,6 +2,13 @@
 
 This directory contains evaluation scripts for the Azure MCP project. This primarily tests tool call accuracy and ensures that the model will call the correct MCP tool with parameters to retrieve information about Azure resources.
 
+The Tool Call Accuracy evaluator assesses how accurately an AI uses tools by examining:
+
+- Relevance to the conversation
+- Parameter correctness according to tool definitions
+- Parameter value extraction from the conversation
+- Potential usefulness of the tool call
+
 ## Prerequisites
 
 - Python 3.9+
