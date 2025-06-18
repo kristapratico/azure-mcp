@@ -1,6 +1,6 @@
 # Evals for azure-mcp
 
-This directory contains evaluation scripts for the Azure MCP project.
+This directory contains evaluation scripts for the Azure MCP project. This primarily tests tool call accuracy and ensures that the model will call the correct MCP tool with parameters to retrieve information about Azure resources.
 
 ## Prerequisites
 
