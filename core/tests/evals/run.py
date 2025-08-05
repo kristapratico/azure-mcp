@@ -25,7 +25,7 @@ from tabulate import tabulate
 dotenv.load_dotenv()
 
 # for best results, model judge should always be a different model from the one we are evaluating
-MODEL = "gpt-4o"
+MODEL = "gpt-4o-2"
 MODEL_JUDGE = "o3-mini"
 API_VERSION = "2025-03-01-preview"
 SCORE_THRESHOLD = 0.8
@@ -48,6 +48,8 @@ def display_evaluation_results(result_data: Any) -> None:
         ('Query', 'inputs.query'),
         ('Expected (tool, cmd)', 'inputs.expected_tool_calls'),
         ('Actual  (tool, cmd)', 'outputs.mcp.actual_tool_calls'),
+        ('Tool Count', None),
+        ('Prompt tokens', None),
         ('Status', 'outputs.mcp.tool_call_accuracy'),
         ('Score', 'outputs.mcp.score'),
         ('Reason', 'outputs.mcp.reason')
@@ -60,25 +62,35 @@ def display_evaluation_results(result_data: Any) -> None:
     for row in rows:
         row_data = []
         for col_name, col_key in columns:
-            value = row.get(col_key, 'N/A')
-            
-            if isinstance(value, list):
-                # Format lists nicely, especially tuples without quotes
-                formatted_items = []
-                for item in value:
-                    if isinstance(item, tuple):
-                        # Format tuple without quotes around strings
-                        tuple_items = [str(x) for x in item]
-                        formatted_items.append(f"({', '.join(tuple_items)})")
-                    else:
-                        formatted_items.append(str(item))
-                value_str = ', '.join(formatted_items)
-            elif value is None or (isinstance(value, float) and str(value) == 'nan'):
-                value_str = 'N/A'
-            elif isinstance(value, float):
-                value_str = f"{value:.3f}"
+            # Special handling for the Tool Count column
+            if col_key is None and col_name == 'Tool Count':
+                actual_count = row.get('outputs.num_tool_calls_actual', 0)
+                expected_count = row.get('outputs.num_tool_calls_expected', 0)
+                value_str = f"{actual_count}/{expected_count}"
+            # Special handling for the Tokens column
+            elif col_key is None and col_name == 'Prompt tokens':
+                total_tokens = row.get('outputs.prompt_tokens', 0)
+                value_str = str(total_tokens)
             else:
-                value_str = str(value)
+                value = row.get(col_key, 'N/A')
+                
+                if isinstance(value, list):
+                    # Format lists nicely, especially tuples without quotes
+                    formatted_items = []
+                    for item in value:
+                        if isinstance(item, tuple):
+                            # Format tuple without quotes around strings
+                            tuple_items = [str(x) for x in item]
+                            formatted_items.append(f"({', '.join(tuple_items)})")
+                        else:
+                            formatted_items.append(str(item))
+                    value_str = ', '.join(formatted_items)
+                elif value is None or (isinstance(value, float) and str(value) == 'nan'):
+                    value_str = 'N/A'
+                elif isinstance(value, float):
+                    value_str = f"{value:.3f}"
+                else:
+                    value_str = str(value)
             
             row_data.append(value_str)
         
@@ -88,7 +100,7 @@ def display_evaluation_results(result_data: Any) -> None:
     print("\n" + "=" * 80)
     print("EVALUATION RESULTS")
     print("=" * 80)
-    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[40, 25, 25, 8, 8, 35]))
+    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[30, 20, 20, 6, 6, 8, 8, 25]))
     
     # Print metrics summary
     metrics = result_data.get('metrics', {})
@@ -131,23 +143,24 @@ else:
 
 # Monkeypatch AsyncPrompty.load to accept token_credential
 # https://github.com/Azure/azure-sdk-for-python/issues/41295
-from azure.ai.evaluation._legacy.prompty import AsyncPrompty
+# from azure.ai.evaluation._legacy.prompty import AsyncPrompty TODO
 
-original_load = AsyncPrompty.load
-
-
-def patched_load(cls, source, **kwargs):
-    """Patched version of AsyncPrompty.load that accepts token_credential parameter"""
-    return original_load(source=source, token_credential=CREDENTIAL, **kwargs)
+# original_load = AsyncPrompty.load
 
 
-AsyncPrompty.load = classmethod(patched_load)  # type: ignore
+# def patched_load(cls, source, **kwargs):
+#     """Patched version of AsyncPrompty.load that accepts token_credential parameter"""
+#     return original_load(source=source, token_credential=CREDENTIAL, **kwargs)
+
+
+# AsyncPrompty.load = classmethod(patched_load)  # type: ignore
 
 
 client = AzureOpenAI(
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
     api_version=API_VERSION,
-    azure_ad_token_provider=get_bearer_token_provider(CREDENTIAL, "https://cognitiveservices.azure.com/.default"),
+    # azure_ad_token_provider=get_bearer_token_provider(CREDENTIAL, "https://cognitiveservices.azure.com/.default"), TODO
+    api_key=os.environ["AZURE_OPENAI_API_KEY"]
 )
 
 server_params = StdioServerParameters(
@@ -242,10 +255,15 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
     attempts = 0
     max_attempts = 10
     all_tool_calls_made = []
+    total_prompt_tokens = 0
 
     while attempts < max_attempts:
         attempts += 1
         response = client.chat.completions.create(model=MODEL, messages=messages, tools=available_tools)  # type: ignore
+
+        # Capture token usage from the response
+        if response.usage:
+            total_prompt_tokens += response.usage.prompt_tokens or 0
 
         response_message = response.choices[0].message
         messages.append(response_message)  # type: ignore
@@ -267,6 +285,7 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
         "tool_definitions": tool_defs,
         "num_tool_calls_actual": len(tool_calls_made),
         "num_tool_calls_expected": len(expected_tool_calls),
+        "prompt_tokens": total_prompt_tokens,
     }
 
 
@@ -391,8 +410,8 @@ if __name__ == "__main__":
             "mcp": custom,
         },
         target=evaluate_azure_mcp,
-        azure_ai_project=azure_ai_project,
-        credential=CREDENTIAL,
+        # azure_ai_project=azure_ai_project, TODO
+        # credential=CREDENTIAL,
     )
 
     # write results to JSON

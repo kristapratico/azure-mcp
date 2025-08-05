@@ -44,30 +44,11 @@ def load_test_settings_from_file(test_settings_path=".testsettings.json", servic
                         return settings
                 else:
                     print(f"⚠️  Service-specific test settings not found at: {service_test_settings}")
-        
-        # Fallback to searching for general .testsettings.json
-        current_dir = os.getcwd()
-        while current_dir != "/":  # Stop at root directory
-            test_settings_file = os.path.join(current_dir, test_settings_path)
-            if os.path.exists(test_settings_file):
-                with open(test_settings_file, 'r', encoding='utf-8') as f:
-                    settings = json.load(f)
-                    print(f"✅ Loaded test settings from: {test_settings_file}")
-                    return settings
-            current_dir = os.path.dirname(current_dir)
-        
-        # If not found in parent directories, try the provided path directly
-        if os.path.exists(test_settings_path):
-            with open(test_settings_path, 'r', encoding='utf-8') as f:
-                settings = json.load(f)
-                print(f"✅ Loaded test settings from: {test_settings_path}")
-                return settings
-        
-        print(f"⚠️  WARNING: .testsettings.json file not found. Using environment variables instead.")
+
         return {}
         
     except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
-        print(f"⚠️  WARNING: Error reading .testsettings.json: {e}. Using environment variables instead.")
+        print(f"⚠️  WARNING: Error reading .testsettings.json: {e}.")
         return {}
 
 
@@ -84,11 +65,7 @@ def get_env(key, test_settings=None):
     """
     if test_settings and key in test_settings:
         return test_settings[key]
-    return os.environ.get(key, f"MISSING_{key}")
 
-
-# Load test settings from .testsettings.json file
-test_settings = load_test_settings_from_file()
 
 # Mapping from markdown H2 headers to standardized service area names (matching /areas/ directories)
 service_header_mapping = {
@@ -124,9 +101,9 @@ service_header_mapping = {
     "Bicep": "bicepschema"
 }
 
-def build_variable_mappings(test_settings):
+def build_variable_mappings(service, test_settings):
     """Build variable mappings with the provided test settings"""
-    return {
+    variable_mappings = {
         # Generic/Common placeholders used across services
         "common": {
             "<resource-name>": get_env("ResourceBaseName", test_settings),
@@ -300,10 +277,7 @@ def build_variable_mappings(test_settings):
         # grafana
         "grafana": {}
     }
-
-
-# Define the variable mappings organized by standardized service area names (matching /areas/ directories)
-variable_mappings = build_variable_mappings(test_settings)
+    return variable_mappings.get(service, {})
 
 
 def download_markdown_file(url):
@@ -418,7 +392,8 @@ def parse_markdown_and_convert_to_jsonl(markdown_content, filter_service_names=N
             # Create a JSON object for each entry
             entry = {
                 "query": test_prompt,
-                "expected_tool_calls": expected_tool_calls
+                "expected_tool_calls": expected_tool_calls,
+                "service_area": standardized_service_name  # Add service area to track which service this belongs to
             }
             
             results.append(entry)
@@ -442,41 +417,47 @@ def replace_placeholders_and_track_unmapped(data, variable_mappings, service_are
     """
     unmapped_placeholders = defaultdict(int)
     
-    # Build the mappings to use based on service areas
-    mappings_to_use = {}
-    
-    # Always include common placeholders
-    if "common" in variable_mappings:
-        mappings_to_use.update(variable_mappings["common"])
-    
-    # If specific service areas are provided, only include those
-    if service_areas:
-        for service_area in service_areas:
-            if service_area in variable_mappings:
-                mappings_to_use.update(variable_mappings[service_area])
-    else:
-        # If no service areas specified, include all mappings
-        for service, mappings in variable_mappings.items():
-            if service != "common":  # Already added above
-                mappings_to_use.update(mappings)
-    
-    # Process each entry
+    # Group entries by service area
+    entries_by_service = defaultdict(list)
     for entry in data:
-        query = entry['query']
-        
-        # Replace all placeholders in the query
-        for placeholder, fake_name in mappings_to_use.items():
-            query = query.replace(placeholder, fake_name)
-            
-        # Check for any remaining unmapped placeholders
-        remaining_placeholders = find_placeholders_in_text(query)
-        for placeholder in remaining_placeholders:
-            unmapped_placeholders[placeholder] += 1
-            
-        # Update the query in the data object
-        entry['query'] = query
+        service_area = entry.get('service_area')
+        entries_by_service[service_area].append(entry)
     
-    return data, unmapped_placeholders
+    processed_entries = []
+    
+    # Process each service area separately
+    for service_area, entries in entries_by_service.items():
+        # Build the mappings to use for this specific service area
+        mappings_to_use = {}
+        
+        # Always include common placeholders
+        if "common" in variable_mappings:
+            mappings_to_use.update(variable_mappings["common"])
+        
+        # Add mappings specific to this service area
+        if service_area and service_area in variable_mappings:
+            mappings_to_use.update(variable_mappings[service_area])
+        
+        # Process each entry in this service area
+        for entry in entries:
+            query = entry['query']
+            
+            # Replace all placeholders in the query using only this service area's mappings
+            for placeholder, fake_name in mappings_to_use.items():
+                if fake_name is None:
+                    continue
+                query = query.replace(placeholder, fake_name)
+                
+            # Check for any remaining unmapped placeholders
+            remaining_placeholders = find_placeholders_in_text(query)
+            for placeholder in remaining_placeholders:
+                unmapped_placeholders[placeholder] += 1
+                
+            # Update the query in the data object
+            entry['query'] = query
+            processed_entries.append(entry)
+    
+    return processed_entries, unmapped_placeholders
 
 
 def save_to_jsonl_file(data, output_file):
@@ -521,21 +502,27 @@ def main():
         invalid_services = [service for service in service_names if service not in valid_services]
         
         if invalid_services:
-            print(f"❌ Error: Invalid service name(s): {', '.join(invalid_services)}")
+            print(f"❌ Error: No support added for service name(s): {', '.join(invalid_services)}")
             print(f"Available services: {', '.join(sorted(valid_services))}")
             return
+    else:
+        # If no service specified, process all services
+        service_names = list(service_header_mapping.values())
 
-    # Load service-specific test settings if a single service is provided
-    current_variable_mappings = variable_mappings  # Use global default
-    if service_names and len(service_names) == 1:
-        # For single service, try to load service-specific test settings
-        service_test_settings = load_test_settings_from_file(service_name=service_names[0])
+    current_variable_mappings = {}
+    
+    # Always include common mappings
+    common_test_settings = load_test_settings_from_file()  # Load default/common settings
+    current_variable_mappings["common"] = build_variable_mappings("common", common_test_settings)
+    
+    # Load service-specific mappings
+    for service in service_names:
+        service_test_settings = load_test_settings_from_file(service_name=service)
         if service_test_settings:
-            # Rebuild variable mappings with service-specific test settings
-            current_variable_mappings = build_variable_mappings(service_test_settings)
-            print(f"🔧 Using service-specific test settings for: {service_names[0]}")
+            current_variable_mappings[service] = build_variable_mappings(service, service_test_settings)
         else:
-            print(f"🔧 Using default test settings for: {service_names[0]}")
+            # If no service-specific settings, use common settings as fallback
+            current_variable_mappings[service] = build_variable_mappings(service, common_test_settings)
 
     # Download the markdown file
     print(f"Downloading latest e2e test prompts from: {source_url}")
@@ -557,7 +544,7 @@ def main():
         print(f"Available services: {', '.join(sorted(set(service_header_mapping.values())))}")
         return
     
-    print("Replacing placeholders with fake values...")
+    print("Replacing placeholders with values...")
     # Replace placeholders and track unmapped ones
     processed_data, unmapped_placeholders = replace_placeholders_and_track_unmapped(jsonl_data, current_variable_mappings, service_names)
     
