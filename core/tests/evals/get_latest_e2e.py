@@ -2,7 +2,6 @@
 import re
 import os
 import json
-import requests
 import argparse
 from collections import defaultdict
 import dotenv
@@ -280,14 +279,16 @@ def build_variable_mappings(service, test_settings):
     return variable_mappings.get(service, {})
 
 
-def download_markdown_file(url):
-    """Download a markdown file from GitHub URL"""
+def read_local_markdown_file(file_path):
+    """Read a markdown file from local filesystem"""
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except requests.RequestException as e:
-        print(f"Error downloading the markdown file: {e}")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"Error: Markdown file not found at: {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error reading the markdown file: {e}")
         return None
 
 
@@ -414,6 +415,9 @@ def replace_placeholders_and_track_unmapped(data, variable_mappings, service_are
         data: List of entries to process
         variable_mappings: Dictionary of variable mappings to use
         service_areas: List of service area names to filter placeholders (optional)
+        
+    Returns:
+        tuple: (processed_entries, unmapped_placeholders, skipped_entries_count)
     """
     unmapped_placeholders = defaultdict(int)
     
@@ -424,6 +428,7 @@ def replace_placeholders_and_track_unmapped(data, variable_mappings, service_are
         entries_by_service[service_area].append(entry)
     
     processed_entries = []
+    skipped_entries_count = 0
     
     # Process each service area separately
     for service_area, entries in entries_by_service.items():
@@ -441,6 +446,7 @@ def replace_placeholders_and_track_unmapped(data, variable_mappings, service_are
         # Process each entry in this service area
         for entry in entries:
             query = entry['query']
+            original_query = query  # Keep original for error reporting
             
             # Replace all placeholders in the query using only this service area's mappings
             for placeholder, fake_name in mappings_to_use.items():
@@ -450,14 +456,22 @@ def replace_placeholders_and_track_unmapped(data, variable_mappings, service_are
                 
             # Check for any remaining unmapped placeholders
             remaining_placeholders = find_placeholders_in_text(query)
-            for placeholder in remaining_placeholders:
-                unmapped_placeholders[placeholder] += 1
+            
+            if remaining_placeholders:
+                # Track unmapped placeholders for reporting
+                for placeholder in remaining_placeholders:
+                    unmapped_placeholders[placeholder] += 1
                 
-            # Update the query in the data object
-            entry['query'] = query
-            processed_entries.append(entry)
+                # Skip this entry - don't add it to processed_entries
+                skipped_entries_count += 1
+                print(f"⚠️  Skipping query with unmapped placeholders: {remaining_placeholders}")
+                print(f"   Original query: {original_query[:100]}{'...' if len(original_query) > 100 else ''}")
+            else:
+                # No unmapped placeholders, include this entry
+                entry['query'] = query
+                processed_entries.append(entry)
     
-    return processed_entries, unmapped_placeholders
+    return processed_entries, unmapped_placeholders, skipped_entries_count
 
 
 def save_to_jsonl_file(data, output_file):
@@ -467,7 +481,7 @@ def save_to_jsonl_file(data, output_file):
             f.write(json.dumps(entry, ensure_ascii=False) + '\n')
 
 
-def log_unmapped_placeholders(unmapped_placeholders):
+def log_unmapped_placeholders(unmapped_placeholders, skipped_count=0):
     """Log unmapped placeholders to console"""
     if unmapped_placeholders:
         print("\n⚠️  WARNING: Found unmapped placeholders:")
@@ -475,6 +489,8 @@ def log_unmapped_placeholders(unmapped_placeholders):
         for placeholder, count in sorted(unmapped_placeholders.items()):
             print(f"  {placeholder} (found {count} times)")
         print("=" * 50)
+        if skipped_count > 0:
+            print(f"Queries with unmapped placeholders were skipped ({skipped_count} total).")
         print("Consider adding these to the variable_mappings dictionary.\n")
     else:
         print("✅ All placeholders successfully mapped!")
@@ -482,14 +498,14 @@ def log_unmapped_placeholders(unmapped_placeholders):
 
 def main():
     # Set up command line argument parsing
-    parser = argparse.ArgumentParser(description='Download and convert e2e test prompts to JSONL format')
+    parser = argparse.ArgumentParser(description='Convert local e2e test prompts to JSONL format')
     parser.add_argument('--service', type=str, help=f'Filter results to only include entries for the specified service area(s). Use comma-separated values for multiple services. Available services: {", ".join(sorted(set(service_header_mapping.values())))}')
     parser.add_argument('--output', '-o', type=str, default='data.jsonl', help='Output JSONL file name (default: data.jsonl)')
 
     args = parser.parse_args()
     
-    # Define source URL and output file
-    source_url = "https://raw.githubusercontent.com/Azure/azure-mcp/refs/heads/main/e2eTests/e2eTestPrompts.md"
+    # Define source file and output file
+    source_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "..", "e2eTests", "e2eTestPrompts.md")
     output_file = args.output
     
     # Parse service names if provided and validate them
@@ -524,9 +540,9 @@ def main():
             # If no service-specific settings, use common settings as fallback
             current_variable_mappings[service] = build_variable_mappings(service, common_test_settings)
 
-    # Download the markdown file
-    print(f"Downloading latest e2e test prompts from: {source_url}")
-    markdown_content = download_markdown_file(source_url)
+    # Read the local markdown file
+    print(f"Reading e2e test prompts from local file: {source_file}")
+    markdown_content = read_local_markdown_file(source_file)
     
     if markdown_content is None:
         return
@@ -546,7 +562,7 @@ def main():
     
     print("Replacing placeholders with values...")
     # Replace placeholders and track unmapped ones
-    processed_data, unmapped_placeholders = replace_placeholders_and_track_unmapped(jsonl_data, current_variable_mappings, service_names)
+    processed_data, unmapped_placeholders, skipped_count = replace_placeholders_and_track_unmapped(jsonl_data, current_variable_mappings, service_names)
     
     # Save to JSONL file
     save_to_jsonl_file(processed_data, output_file)
@@ -554,11 +570,16 @@ def main():
     # Report results
     print(f"\n✅ Conversion complete!")
     print(f"📄 {len(processed_data)} entries written to {output_file}")
-    if service_names:
+    if skipped_count > 0:
+        print(f"⚠️  {skipped_count} entries skipped due to unmapped placeholders")
+    
+    if args.service:
         print(f"🎯 Filtered for services: {', '.join(service_names)}")
+    else:
+        print(f"🎯 Processed all services ({len(set(service_header_mapping.values()))} total)")
 
     # Log any unmapped placeholders
-    log_unmapped_placeholders(unmapped_placeholders)
+    log_unmapped_placeholders(unmapped_placeholders, skipped_count)
 
 
 if __name__ == "__main__":

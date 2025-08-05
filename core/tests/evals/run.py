@@ -27,7 +27,7 @@ dotenv.load_dotenv()
 # for best results, model judge should always be a different model from the one we are evaluating
 MODEL = "gpt-4o-2"
 MODEL_JUDGE = "o3-mini"
-API_VERSION = "2025-03-01-preview"
+API_VERSION = "2025-04-01-preview"
 SCORE_THRESHOLD = 0.8
 
 
@@ -160,7 +160,8 @@ client = AzureOpenAI(
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
     api_version=API_VERSION,
     # azure_ad_token_provider=get_bearer_token_provider(CREDENTIAL, "https://cognitiveservices.azure.com/.default"), TODO
-    api_key=os.environ["AZURE_OPENAI_API_KEY"]
+    api_key=os.environ["AZURE_OPENAI_API_KEY"],
+    max_retries=5
 )
 
 server_params = StdioServerParameters(
@@ -214,13 +215,11 @@ async def make_request(
     tool_calls_made: list[chat.ChatCompletionMessageToolCall],
 ) -> tuple[list, list[chat.ChatCompletionMessageToolCall]]:
     
-    # Execute all tool calls
     tool_messages = []
     for tool_call in tool_calls_made:
         function_args = json.loads(tool_call.function.arguments)
         result = await call_mcp_tool(tool_call, function_args)
 
-        # Handle different content types
         content = ""
         if result.content and len(result.content) > 0:
             content_item = result.content[0]
@@ -239,9 +238,7 @@ async def make_request(
             }
         )
     
-    # Add tool results to messages
     messages.extend(tool_messages)
-    
     return messages, tool_calls_made
 
 
@@ -261,18 +258,15 @@ def evaluate_azure_mcp(query: str, expected_tool_calls: list):
         attempts += 1
         response = client.chat.completions.create(model=MODEL, messages=messages, tools=available_tools)  # type: ignore
 
-        # Capture token usage from the response
         if response.usage:
             total_prompt_tokens += response.usage.prompt_tokens or 0
 
         response_message = response.choices[0].message
         messages.append(response_message)  # type: ignore
 
-        # If tool calls were made, execute them
         if response_message.tool_calls:
             all_tool_calls_made.extend(response_message.tool_calls)
             messages, _ = asyncio.run(make_request(messages, available_tools, response_message.tool_calls))  # type: ignore
-
             continue
         break
 
@@ -340,7 +334,6 @@ class MCPEval:
 
         correct_params = False
         for tool_call in tool_calls:
-            # todo update to support new tool definitions
             arguments = tool_call.get("arguments", {})
             tool_def = [d for d in tool_definitions if d["name"] == tool_call["name"]]
             if not tool_def:
@@ -349,22 +342,18 @@ class MCPEval:
             tool_def = tool_def[0]
             parameters = tool_def.get("parameters", {})
             required = parameters.get("required", [])
-            properties = parameters.get("properties", {})
 
             all_required_present = all(arg in arguments and arguments[arg] is not None for arg in required)
-            # TODO tool definitions changed - part of the body of the initial MCP call now, need to parse it out
-            # all_args_valid = all(arg in required or arg in properties for arg in arguments)
-            # correct_params = all_required_present and all_args_valid
             correct_params = all_required_present
 
-        service_area_called_expected = (
+        tool_called_expected = (
             any(actual["name"] == expected for actual in tool_calls for expected in expected_tool_calls)
         )
-        tool_call_expected = any(
+        command_expected = any(
             actual.get("arguments", {}).get("command") == expected
             for actual in tool_calls for expected in expected_tool_calls
         )
-        called_expected = service_area_called_expected and tool_call_expected
+        called_expected = tool_called_expected and command_expected
         actual_tool_calls = []
 
         for t in tool_calls:
@@ -420,7 +409,6 @@ if __name__ == "__main__":
     with open(output_file, "w") as f:
         json.dump(result, f, indent=4)
 
-    # Display results in a formatted table
     display_evaluation_results(result)
 
     if 'studio_url' in result:
