@@ -13,7 +13,7 @@ from openai.types import chat
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
 from mcp.types import CallToolResult
-from azure.ai.evaluation import evaluate, ToolCallAccuracyEvaluator, AzureAIProject
+from azure.ai.evaluation import evaluate, AzureAIProject
 from azure.identity import (
     AzurePipelinesCredential,
     DefaultAzureCredential,
@@ -100,7 +100,7 @@ def display_evaluation_results(result_data: Any) -> None:
     print("\n" + "=" * 80)
     print("EVALUATION RESULTS")
     print("=" * 80)
-    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[30, 20, 20, 6, 6, 8, 8, 25]))
+    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[20, 12, 12, 4, 4, 5, 5, 15]))
     
     # Print metrics summary
     metrics = result_data.get('metrics', {})
@@ -126,19 +126,19 @@ def in_ci() -> bool:
     return os.getenv("TF_BUILD") is not None
 
 
-if in_ci():
-    service_connection_id = os.environ["AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"]
-    client_id = os.environ["AZURESUBSCRIPTION_CLIENT_ID"]
-    tenant_id = os.environ["AZURESUBSCRIPTION_TENANT_ID"]
-    system_access_token = os.environ["SYSTEM_ACCESSTOKEN"]
-    CREDENTIAL = AzurePipelinesCredential(
-        service_connection_id=service_connection_id,
-        client_id=client_id,
-        tenant_id=tenant_id,
-        system_access_token=system_access_token,
-    )
-else:
-    CREDENTIAL = DefaultAzureCredential()
+# if in_ci():
+#     service_connection_id = os.environ["AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"]
+#     client_id = os.environ["AZURESUBSCRIPTION_CLIENT_ID"]
+#     tenant_id = os.environ["AZURESUBSCRIPTION_TENANT_ID"]
+#     system_access_token = os.environ["SYSTEM_ACCESSTOKEN"]
+#     CREDENTIAL = AzurePipelinesCredential(
+#         service_connection_id=service_connection_id,
+#         client_id=client_id,
+#         tenant_id=tenant_id,
+#         system_access_token=system_access_token,
+#     )
+# else:
+#     CREDENTIAL = DefaultAzureCredential()
 
 
 # Monkeypatch AsyncPrompty.load to accept token_credential
@@ -389,7 +389,6 @@ if __name__ == "__main__":
         "api_version": API_VERSION,
     }
 
-    tool_call_accuracy = ToolCallAccuracyEvaluator(model_config=model_config, is_reasoning_model=True)
     custom = MCPEval()
 
     test_file = pathlib.Path(__file__).parent / "data.jsonl"
