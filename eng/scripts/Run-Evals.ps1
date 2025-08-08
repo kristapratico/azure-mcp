@@ -31,12 +31,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Only run in CI environment
-if ($env:TF_BUILD -ne 'true') {
-    Write-Warning "This script only runs in CI environment (TF_BUILD must be 'true'). Current TF_BUILD: '$env:TF_BUILD'"
-    exit 0
-}
-
 Write-Host "Running Azure MCP Evaluations in CI environment" -ForegroundColor Green
 Write-Host "TestType: $TestType" -ForegroundColor Cyan
 if ($Areas) {
@@ -56,9 +50,11 @@ if (-not (Test-Path $EvalsDir)) {
 
 Write-Host "Repository Root: $RepoRoot" -ForegroundColor Yellow
 Write-Host "Evaluations Directory: $EvalsDir" -ForegroundColor Yellow
+Write-Host "Current working directory before change: $(Get-Location)" -ForegroundColor Cyan
 
 # Change to evals directory
 Push-Location $EvalsDir
+Write-Host "Current working directory after change: $(Get-Location)" -ForegroundColor Cyan
 try {
     # Check if Python is available
     try {
@@ -138,6 +134,7 @@ try {
 
     # Step 2: Run run.py to execute evaluations (no arguments needed)
     Write-Host "Step 2: Running evaluations with run.py..." -ForegroundColor Yellow
+    Write-Host "About to run Python from directory: $(Get-Location)" -ForegroundColor Cyan
     
     if (Test-Path "run.py") {
         Write-Host "Running: python run.py" -ForegroundColor Cyan

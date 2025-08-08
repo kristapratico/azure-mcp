@@ -13,12 +13,7 @@ from openai.types import chat
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
 from mcp.types import CallToolResult
-from azure.ai.evaluation import evaluate, AzureAIProject
-from azure.identity import (
-    AzurePipelinesCredential,
-    DefaultAzureCredential,
-    get_bearer_token_provider,
-)
+from azure.ai.evaluation import evaluate
 from tabulate import tabulate
 
 
@@ -30,6 +25,17 @@ MODEL_JUDGE = "o3-mini"
 API_VERSION = "2025-04-01-preview"
 SCORE_THRESHOLD = 0.8
 
+
+client = AzureOpenAI(
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    api_key=os.environ["AZURE_OPENAI_API_KEY"],
+    api_version=API_VERSION,
+    max_retries=5
+)
+
+server_params = StdioServerParameters(
+    command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None
+)
 
 def display_evaluation_results(result_data: Any) -> None:
     """Display evaluation results in a formatted table using tabulate"""
@@ -120,53 +126,6 @@ def display_evaluation_results(result_data: Any) -> None:
         print("No metrics data available")
     
     print("=" * 80)
-
-
-def in_ci() -> bool:
-    return os.getenv("TF_BUILD") is not None
-
-
-# if in_ci():
-#     service_connection_id = os.environ["AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"]
-#     client_id = os.environ["AZURESUBSCRIPTION_CLIENT_ID"]
-#     tenant_id = os.environ["AZURESUBSCRIPTION_TENANT_ID"]
-#     system_access_token = os.environ["SYSTEM_ACCESSTOKEN"]
-#     CREDENTIAL = AzurePipelinesCredential(
-#         service_connection_id=service_connection_id,
-#         client_id=client_id,
-#         tenant_id=tenant_id,
-#         system_access_token=system_access_token,
-#     )
-# else:
-#     CREDENTIAL = DefaultAzureCredential()
-
-
-# Monkeypatch AsyncPrompty.load to accept token_credential
-# https://github.com/Azure/azure-sdk-for-python/issues/41295
-# from azure.ai.evaluation._legacy.prompty import AsyncPrompty TODO
-
-# original_load = AsyncPrompty.load
-
-
-# def patched_load(cls, source, **kwargs):
-#     """Patched version of AsyncPrompty.load that accepts token_credential parameter"""
-#     return original_load(source=source, token_credential=CREDENTIAL, **kwargs)
-
-
-# AsyncPrompty.load = classmethod(patched_load)  # type: ignore
-
-
-client = AzureOpenAI(
-    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-    api_version=API_VERSION,
-    # azure_ad_token_provider=get_bearer_token_provider(CREDENTIAL, "https://cognitiveservices.azure.com/.default"), TODO
-    api_key=os.environ["AZURE_OPENAI_API_KEY"],
-    max_retries=5
-)
-
-server_params = StdioServerParameters(
-    command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None
-)
 
 
 def reshape_tools(
@@ -377,12 +336,6 @@ class MCPEval:
 
 
 if __name__ == "__main__":
-    azure_ai_project: AzureAIProject = {
-        "subscription_id": os.environ["AZURE_SUBSCRIPTION_ID"],
-        "resource_group_name": os.environ["AZURE_FOUNDRY_RESOURCE_GROUP"],
-        "project_name": os.environ["AZURE_FOUNDRY_PROJECT_NAME"],
-    }
-
     model_config: dict[str, str] = {
         "azure_endpoint": os.environ["AZURE_OPENAI_ENDPOINT"],
         "azure_deployment": MODEL_JUDGE,
@@ -398,19 +351,11 @@ if __name__ == "__main__":
             "mcp": custom,
         },
         target=evaluate_azure_mcp,
-        # azure_ai_project=azure_ai_project, TODO
-        # credential=CREDENTIAL,
     )
 
-    # write results to JSON
     output_file = pathlib.Path(__file__).parent / ".log" / "evaluation_result.json"
     output_file.parent.mkdir(exist_ok=True)
     with open(output_file, "w") as f:
         json.dump(result, f, indent=4)
 
     display_evaluation_results(result)
-
-    if 'studio_url' in result:
-        print(f"Evaluation studio URL: {result['studio_url']}")
-    else:
-        print("Evaluation completed (no studio URL available)")
