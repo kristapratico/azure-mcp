@@ -91,12 +91,8 @@ try {
             exit $LASTEXITCODE
         }
     } else {
-        Write-Warning "requirements.txt not found, installing core packages directly"
-        python -m pip install azure-ai-evaluation azure-identity python-dotenv mcp openai tabulate tiktoken
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to install core packages"
-            exit $LASTEXITCODE
-        }
+        Write-Warning "requirements.txt not found, exiting..."
+        exit $LASTEXITCODE
     }
 
     Write-Host "Requirements installed successfully" -ForegroundColor Green

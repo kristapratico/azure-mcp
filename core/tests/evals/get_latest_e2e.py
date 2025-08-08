@@ -9,6 +9,24 @@ import dotenv
 dotenv.load_dotenv()
 
 
+def load_config_from_json(filename):
+    """Generic function to load a JSON configuration file
+    
+    Args:
+        filename (str): Name of the JSON file (e.g., "service_mappings.json")
+        
+    Returns:
+        dict: The configuration data, or empty dict if error
+    """
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), filename)
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"⚠️  WARNING: Error loading {filename}: {e}")
+        return {}
+
+
 def load_test_settings_from_file(test_settings_path=".testsettings.json", service_name=None):
     """
     Load environment values from a local .testsettings.json file.
@@ -64,219 +82,43 @@ def get_env(key, test_settings=None):
     """
     if test_settings and key in test_settings:
         return test_settings[key]
+    
+    # Fallback to environment variable
+    return os.environ.get(key)
 
-
-# Mapping from markdown H2 headers to standardized service area names (matching /areas/ directories)
-service_header_mapping = {
-    "Azure AI Foundry": "foundry",
-    "Azure AI Search": "search", 
-    "Azure App Configuration": "appconfig",
-    "Azure CLI": "extension",  # extension area handles CLI tools
-    "Azure Cosmos DB": "cosmos",
-    "Azure Data Explorer": "kusto",
-    "Azure Database for PostgreSQL": "postgres",
-    "Azure Developer CLI": "extension",  # extension area handles azd
-    "Azure Key Vault": "keyvault",
-    "Azure Kubernetes Service (AKS)": "aks",
-    "Azure Load Testing": "loadtesting",
-    "Azure Managed Grafana": "grafana",
-    "Azure Marketplace": "marketplace",
-    "Azure MCP Best Practices": "azurebestpractices",
-    "Azure MCP Tools": "extension",  # generic tools are in extension
-    "Azure Monitor": "monitor",
-    "Azure Native ISV": "azureisv",
-    "Azure Quick Review CLI": "extension",  # extension area handles azqr
-    "Azure RBAC": "authorization",
-    "Azure Redis": "redis",
-    "Azure Resource Group": "extension",  # group operations in extension
-    "Azure Service Bus": "servicebus",
-    "Azure SQL Database": "sql",
-    "Azure SQL Elastic Pool Operations": "sql",
-    "Azure SQL Server Operations": "sql",
-    "Azure Storage": "storage",
-    "Azure Subscription Management": "extension",  # subscription operations in extension
-    "Azure Terraform Best Practices": "azureterraformbestpractices",
-    "Azure Workbooks": "workbooks",
-    "Bicep": "bicepschema"
-}
 
 def build_variable_mappings(service, test_settings):
     """Build variable mappings with the provided test settings"""
-    variable_mappings = {
-        # Generic/Common placeholders used across services
-        "common": {
-            "<resource-name>": get_env("ResourceBaseName", test_settings),
-            "<resource_name>": get_env("ResourceBaseName", test_settings),
-            "<resource_type>": "storage account",
-            "<tenant_ID>": get_env("TenantId", test_settings),
-            "<subscription_id>": get_env("SubscriptionId", test_settings),
-            "<tenant_name>": get_env("TenantName", test_settings),
-            "<subscription_name>": get_env("SubscriptionName", test_settings),
-            "<resource_group_name>": get_env("ResourceGroupName", test_settings),
-            "<resource-group>": get_env("ResourceGroupName", test_settings),
-            "<account_name>": get_env("ResourceBaseName", test_settings),
-            "<search_term>": "customer"
-        },
-        
-        # foundry
-        "foundry": {
-            "<resource-name>": get_env("ResourceBaseName", test_settings)
-        },
-        
-        # search
-        "search": {
-            "<service-name>": get_env("ResourceBaseName", test_settings),
-            "<index-name>": "products",
-            "<search_term>": "*"
-        },
-        
-        # appconfig
-        "appconfig": {
-            "<key_name>": "foo",
-            "<app_config_store_name>": get_env("ResourceBaseName", test_settings),
-            "<value>": "bar"
-        },
-        
-        # extension (covers CLI, azd, azqr, group, subscription operations)
-        "extension": {
-            "<storage_account_name>": get_env("ResourceBaseName", test_settings),
-            "<account_name>": get_env("ResourceBaseName", test_settings)
-        },
-        
-        # cosmos
-        "cosmos": {
-            "<search_term>": "customer",
-            "<account_name>": get_env("ResourceBaseName", test_settings),
-            "<database_name>": "ToDoList",
-            "<container_name>": "Items"
-        },
-        
-        # kusto
-        "kusto": {
-            "<cluster_name>": get_env("ResourceBaseName", test_settings),
-            "<table_name>": "ToDoList",
-            "<database_name>": "ToDoLists",
-            "<table>": "ToDoList",
-            "<search_term>": "pending"
-        },
-        
-        # postgres
-        "postgres": {
-            "<server>": get_env("ResourceBaseName", test_settings),
-            "<database>": "db123",
-            "<table>": "orders",
-            "<search_term>": "pending"
-        },
-        
-        # keyvault
-        "keyvault": {
-            "<key_name>": "foo-bar",
-            "<key_vault_account_name>": get_env("ResourceBaseName", test_settings),
-            "<secret_name>": "foo-bar-secret",
-            "<certificate_name>": "foo-bar-cert",
-            "<secret_value>": "my-secret-value"
-        },
-        
-        # aks
-        "aks": {
-            "<cluster-name>": get_env("ResourceBaseName", test_settings),
-            "<resource-group>": get_env("ResourceGroupName", test_settings)
-        },
-        
-        # loadtesting
-        "loadtesting": {
-            "<test-url>": "https://example.com/api/test",
-            "<sample-name>": "sample-load-test",
-            "<test-id>": "test-123",
-            "<test_id>": "test-123",
-            "<load-test-resource>": get_env("ResourceBaseName", test_settings),
-            "<load-test-resource-name>": get_env("ResourceBaseName", test_settings),
-            "<load-testing-resource>": get_env("ResourceBaseName", test_settings),
-            "<resource-group>": get_env("ResourceGroupName", test_settings),
-            "<test-resource>": get_env("ResourceBaseName", test_settings),
-            "<test_resource>": get_env("ResourceBaseName", test_settings),
-            "<testrun-id>": "run-456",
-            "<testrun_id>": "run-456",
-            "<display-name>": "My Load Test Run",
-            "<description>": "Load test for API endpoint"
-        },
-        
-        # marketplace
-        "marketplace": {
-            "<product_name>": "sample-marketplace-product"
-        },
-        
-        # monitor
-        "monitor": {
-            "<entity_id>": "TestLogs_CL",
-            "<metric_name>": "CpuPercentage",
-            "<time_period>": "24 hours",
-            "<workspace_name>": get_env("ResourceBaseName", test_settings),
-            "<aggregation_type>": "average",
-            "<resource_name>": get_env("ResourceBaseName", test_settings),
-            "<resource_type>": "storage account"
-        },
-        
-        # azureisv
-        "azureisv": {
-            "<resource_name>": get_env("ResourceBaseName", test_settings)
-        },
-        
-        # redis
-        "redis": {
-            "<cache_name>": get_env("ResourceBaseName", test_settings),
-            "<cluster_name>": get_env("ResourceBaseName", test_settings)
-        },
-        
-        # servicebus
-        "servicebus": {
-            "<service_bus_name>": get_env("ResourceBaseName", test_settings),
-            "<queue_name>": "queue1",
-            "<topic_name>": "topic1",
-            "<subscription_name>": "subscription1"
-        },
-        
-        # sql
-        "sql": {
-            "<database_name>": "testdb",
-            "<server_name>": get_env("ResourceBaseName", test_settings)
-        },
-        
-        # storage
-        "storage": {
-            "<storage_account_name>": get_env("ResourceBaseName", test_settings),
-            "<account_name>": get_env("ResourceBaseName", test_settings),
-            "<container_name>": "bar",
-            "<file_system_name>": "filesystem1",
-            "<directory_path>": "/data/uploads"
-        },
-        
-        # workbooks
-        "workbooks": {
-            "<workbook_name>": "sample-workbook",
-            "<workbook_resource_id>": "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Insights/workbooks/workbook-123".format(
-                get_env("SubscriptionId", test_settings), get_env("ResourceGroupName", test_settings)
-            ),
-            "<resource_group_name>": get_env("ResourceGroupName", test_settings),
-            "<workbook_display_name>": "My Sample Workbook"
-        },
-        
-        # authorization
-        "authorization": {},
-        
-        # azurebestpractices
-        "azurebestpractices": {},
-        
-        # azureterraformbestpractices  
-        "azureterraformbestpractices": {},
-        
-        # bicepschema
-        "bicepschema": {},
-        
-        # grafana
-        "grafana": {}
-    }
-    return variable_mappings.get(service, {})
+    # Load the template mappings from JSON
+    variable_mapping_templates = load_config_from_json("variable_mappings.json")
+    
+    # Get the template for this service, or empty dict if not found
+    service_template = variable_mapping_templates.get(service, {})
+    
+    # Build the actual mappings by resolving template values
+    resolved_mappings = {}
+    for placeholder, template_value in service_template.items():
+        if isinstance(template_value, str):
+            # Check if this is a reference to a test setting key
+            if template_value in ["ResourceBaseName", "TenantId", "SubscriptionId", 
+                                "TenantName", "SubscriptionName", "ResourceGroupName"]:
+                resolved_value = get_env(template_value, test_settings)
+            elif "{" in template_value and "}" in template_value:
+                # Handle template strings like "/subscriptions/{SubscriptionId}/..."
+                resolved_value = template_value.format(
+                    SubscriptionId=get_env("SubscriptionId", test_settings),
+                    ResourceGroupName=get_env("ResourceGroupName", test_settings)
+                )
+            else:
+                # Use the literal value
+                resolved_value = template_value
+        else:
+            # For non-string values, use as-is
+            resolved_value = template_value
+            
+        resolved_mappings[placeholder] = resolved_value
+    
+    return resolved_mappings
 
 
 def read_local_markdown_file(file_path):
@@ -299,6 +141,9 @@ def parse_markdown_and_convert_to_jsonl(markdown_content, filter_service_names=N
         markdown_content: The markdown content to parse
         filter_service_names: List of standardized service names (e.g., ['aks', 'cosmos']) to filter by
     """
+    # Load service header mapping
+    service_header_mapping = load_config_from_json("service_mappings.json")
+    
     # Split the markdown content by sections (## headers)
     sections = re.split(r'##\s+', markdown_content)
     
@@ -497,6 +342,9 @@ def log_unmapped_placeholders(unmapped_placeholders, skipped_count=0):
 
 
 def main():
+    # Load service header mapping once at the start
+    service_header_mapping = load_config_from_json("service_mappings.json")
+    
     # Set up command line argument parsing
     parser = argparse.ArgumentParser(description='Convert local e2e test prompts to JSONL format')
     parser.add_argument('--service', type=str, help=f'Filter results to only include entries for the specified service area(s). Use comma-separated values for multiple services. Available services: {", ".join(sorted(set(service_header_mapping.values())))}')

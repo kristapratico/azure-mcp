@@ -1,0 +1,125 @@
+{
+  "common": {
+    "<resource-name>": "ResourceBaseName",
+    "<resource_name>": "ResourceBaseName", 
+    "<resource_type>": "storage account",
+    "<tenant_ID>": "TenantId",
+    "<subscription_id>": "SubscriptionId",
+    "<tenant_name>": "TenantName",
+    "<subscription_name>": "SubscriptionName",
+    "<resource_group_name>": "ResourceGroupName",
+    "<resource-group>": "ResourceGroupName",
+    "<account_name>": "ResourceBaseName",
+    "<search_term>": "customer"
+  },
+    "foundry": {
+      "<resource-name>": "ResourceBaseName"
+    },
+    "search": {
+      "<service-name>": "ResourceBaseName",
+      "<index-name>": "products",
+      "<search_term>": "*"
+    },
+    "appconfig": {
+      "<key_name>": "foo",
+      "<app_config_store_name>": "ResourceBaseName",
+      "<value>": "bar"
+    },
+    "extension": {
+      "<storage_account_name>": "ResourceBaseName",
+      "<account_name>": "ResourceBaseName"
+    },
+    "cosmos": {
+      "<search_term>": "customer",
+      "<account_name>": "ResourceBaseName",
+      "<database_name>": "ToDoList",
+      "<container_name>": "Items"
+    },
+    "kusto": {
+      "<cluster_name>": "ResourceBaseName",
+      "<table_name>": "ToDoList",
+      "<database_name>": "ToDoLists",
+      "<table>": "ToDoList",
+      "<search_term>": "pending"
+    },
+    "postgres": {
+      "<server>": "ResourceBaseName",
+      "<database>": "db123",
+      "<table>": "orders",
+      "<search_term>": "pending"
+    },
+    "keyvault": {
+      "<key_name>": "foo-bar",
+      "<key_vault_account_name>": "ResourceBaseName",
+      "<secret_name>": "foo-bar-secret",
+      "<certificate_name>": "foo-bar-cert",
+      "<secret_value>": "my-secret-value"
+    },
+    "aks": {
+      "<cluster-name>": "ResourceBaseName",
+      "<resource-group>": "ResourceGroupName"
+    },
+    "loadtesting": {
+      "<test-url>": "https://example.com/api/test",
+      "<sample-name>": "sample-load-test",
+      "<test-id>": "test-123",
+      "<test_id>": "test-123",
+      "<load-test-resource>": "ResourceBaseName",
+      "<load-test-resource-name>": "ResourceBaseName",
+      "<load-testing-resource>": "ResourceBaseName",
+      "<resource-group>": "ResourceGroupName",
+      "<test-resource>": "ResourceBaseName",
+      "<test_resource>": "ResourceBaseName",
+      "<testrun-id>": "run-456",
+      "<testrun_id>": "run-456",
+      "<display-name>": "My Load Test Run",
+      "<description>": "Load test for API endpoint"
+    },
+    "marketplace": {
+      "<product_name>": "sample-marketplace-product"
+    },
+    "monitor": {
+      "<entity_id>": "TestLogs_CL",
+      "<metric_name>": "CpuPercentage",
+      "<time_period>": "24 hours",
+      "<workspace_name>": "ResourceBaseName",
+      "<aggregation_type>": "average",
+      "<resource_name>": "ResourceBaseName",
+      "<resource_type>": "storage account"
+    },
+    "azureisv": {
+      "<resource_name>": "ResourceBaseName"
+    },
+    "redis": {
+      "<cache_name>": "ResourceBaseName",
+      "<cluster_name>": "ResourceBaseName"
+    },
+    "servicebus": {
+      "<service_bus_name>": "ResourceBaseName",
+      "<queue_name>": "queue1",
+      "<topic_name>": "topic1",
+      "<subscription_name>": "subscription1"
+    },
+    "sql": {
+      "<database_name>": "testdb",
+      "<server_name>": "ResourceBaseName"
+    },
+    "storage": {
+      "<storage_account_name>": "ResourceBaseName",
+      "<account_name>": "ResourceBaseName",
+      "<container_name>": "bar",
+      "<file_system_name>": "filesystem1",
+      "<directory_path>": "/data/uploads"
+    },
+    "workbooks": {
+      "<workbook_name>": "sample-workbook",
+      "<workbook_resource_id>": "/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Insights/workbooks/workbook-123",
+      "<resource_group_name>": "ResourceGroupName",
+      "<workbook_display_name>": "My Sample Workbook"
+    },
+  "authorization": {},
+  "azurebestpractices": {},
+  "azureterraformbestpractices": {},
+  "bicepschema": {},
+  "grafana": {}
+}
