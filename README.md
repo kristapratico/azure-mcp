@@ -59,9 +59,9 @@ The Azure MCP Server supercharges your agents with Azure context. Here are some 
 
 * "Show me details about my Azure SQL database 'mydb'"
 * "List all databases in my Azure SQL server 'myserver'"
-* "List Active Directory administrators for my Azure SQL server 'myserver'"
 * "List all firewall rules for my Azure SQL server 'myserver'"
 * "List all elastic pools in my Azure SQL server 'myserver'"
+* "List Active Directory administrators for my Azure SQL server 'myserver'"
 
 ### 🔧 Azure Resource Management
 
@@ -75,6 +75,8 @@ The Azure MCP Server supercharges your agents with Azure context. Here are some 
 * "Show me the tables in my Storage account"
 * "Get details about my Storage container"
 * "List paths in my Data Lake file system"
+* "List files and directories in my File Share"
+* "Send a message to my storage queue"
 
 ## 🛠️ Currently Supported Tools
 
@@ -145,8 +147,9 @@ The Azure MCP Server supercharges your agents with Azure context. Here are some 
 
 ### 🔑 Azure Key Vault
 
-* List, create, and get keys
-* Get secrets
+* List and create certificates
+* List and create keys
+* List and create secrets
 
 ### ☸️ Azure Kubernetes Service (AKS)
 
@@ -211,7 +214,14 @@ The Azure MCP Server supercharges your agents with Azure context. Here are some 
 * Show database details and properties
 * List the details and properties of all databases
 * List SQL server firewall rules
-* List elastic pools and their configurations
+
+### 🗄️ Azure SQL Elastic Pool
+
+* List elastic pools in SQL servers
+
+### 🗄️ Azure SQL Server
+
+* List Microsoft Entra ID administrators for SQL servers
 
 ### 💾 Azure Storage
 
@@ -220,6 +230,7 @@ The Azure MCP Server supercharges your agents with Azure context. Here are some 
 * List and query Storage tables
 * List paths in Data Lake file systems
 * Get container properties and metadata
+* List files and directories in File Shares
 
 ### 📋 Azure Subscription
 
@@ -228,6 +239,12 @@ The Azure MCP Server supercharges your agents with Azure context. Here are some 
 ### 🏗️ Azure Terraform Best Practices
 
 * Get secure, production-grade Azure Terraform best practices for effective code generation and command execution
+
+### 🖥️ Azure Virtual Desktop
+  
+* List Azure Virtual Desktop host pools
+* List session hosts in host pools
+* List user sessions on a session host
 
 ### 📊 Azure Workbooks
 
