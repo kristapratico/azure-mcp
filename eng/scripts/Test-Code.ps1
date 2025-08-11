@@ -283,42 +283,42 @@ finally {
 
 $testExitCode = $LastExitCode
 
-# Run evaluations only in CI (TF_BUILD)
+# Run tool call accuracy only in CI (TF_BUILD)
 if ($env:TF_BUILD) {
-    # Run evaluations after tests complete (only in pipeline)
-    Write-Host "Running Azure MCP evaluations..." -ForegroundColor Yellow
+    # Run tool call accuracy after tests complete (only in pipeline)
+    Write-Host "Running Azure MCP tool call accuracy..." -ForegroundColor Yellow
     try {
-        $runEvalsScript = Join-Path $PSScriptRoot "Run-Evals.ps1"
-        if (Test-Path $runEvalsScript) {
-            $evalsParams = @{}
+        $runScript = Join-Path $PSScriptRoot "Run-ToolCallAccuracy.ps1"
+        if (Test-Path $runScript) {
+            $toolCallParams = @{}
             if ($TestType) { 
-                $evalsParams['TestType'] = $TestType
+                $toolCallParams['TestType'] = $TestType
             }
             if ($Areas) { 
-                $evalsParams['Areas'] = $Areas
+                $toolCallParams['Areas'] = $Areas
             }
             
             try {
-                if ($evalsParams.Count -gt 0) {
-                    & $runEvalsScript @evalsParams
+                if ($toolCallParams.Count -gt 0) {
+                    & $runScript @toolCallParams
                 } else {
-                    & $runEvalsScript
+                    & $runScript
                 }
-                $evalsExitCode = $LastExitCode
-                
-                if ($evalsExitCode -eq 0) {
-                    Write-Host "Evaluations completed successfully" -ForegroundColor Green
+                $toolCallExitCode = $LastExitCode
+
+                if ($toolCallExitCode -eq 0) {
+                    Write-Host "Tool call accuracy completed successfully" -ForegroundColor Green
                 } else {
-                    Write-Warning "Evaluations completed with exit code $evalsExitCode (this does not affect the overall test result)"
+                    Write-Warning "Tool call accuracy completed with exit code $toolCallExitCode (this does not affect the overall test result)"
                 }
             } catch {
-                Write-Warning "Error executing Run-Evals.ps1: $($_.Exception.Message) (this does not affect the overall test result)"
+                Write-Warning "Error executing Run-ToolCallAccuracy.ps1: $($_.Exception.Message) (this does not affect the overall test result)"
             }
         } else {
-            Write-Warning "Run-Evals.ps1 script not found at $runEvalsScript"
+            Write-Warning "Run-ToolCallAccuracy.ps1 script not found at $runScript"
         }
     } catch {
-        Write-Warning "Error setting up evaluations: $($_.Exception.Message) (this does not affect the overall test result)"
+        Write-Warning "Error setting up tool call accuracy: $($_.Exception.Message) (this does not affect the overall test result)"
     }
 }
 

@@ -353,7 +353,7 @@ def main():
     args = parser.parse_args()
     
     # Define source file and output file
-    source_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "..", "e2eTests", "e2eTestPrompts.md")
+    source_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "e2eTests", "e2eTestPrompts.md")
     output_file = args.output
     
     # Parse service names if provided and validate them

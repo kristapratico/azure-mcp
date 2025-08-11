@@ -19,9 +19,7 @@ from tabulate import tabulate
 
 dotenv.load_dotenv()
 
-# for best results, model judge should always be a different model from the one we are evaluating
 MODEL = "gpt-4o-2"
-MODEL_JUDGE = "o3-mini"
 API_VERSION = "2025-04-01-preview"
 SCORE_THRESHOLD = 0.8
 
@@ -37,16 +35,16 @@ server_params = StdioServerParameters(
     command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None
 )
 
-def display_evaluation_results(result_data: Any) -> None:
-    """Display evaluation results in a formatted table using tabulate"""
+def display_results(result_data: Any) -> None:
+    """Display results in a formatted table using tabulate"""
     
     if 'rows' not in result_data:
-        print("No evaluation data found in results")
+        print("No data found in results")
         return
     
     rows = result_data['rows']
     if not rows:
-        print("No evaluation rows found")
+        print("No rows found")
         return
     
     # Define the columns we want to display
@@ -104,7 +102,7 @@ def display_evaluation_results(result_data: Any) -> None:
     
     # Display the table
     print("\n" + "=" * 80)
-    print("EVALUATION RESULTS")
+    print("RESULTS")
     print("=" * 80)
     print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[20, 12, 12, 4, 4, 5, 5, 15]))
     
@@ -201,7 +199,7 @@ async def make_request(
     return messages, tool_calls_made
 
 
-def evaluate_azure_mcp(query: str, expected_tool_calls: list):
+def evaluate_tool_call(query: str, expected_tool_calls: list):
     messages = [
         {"role": "assistant", "content": "The subscription is Azure SDK Test Resources - TME with subscription ID 4d042dc6-fe17-4698-a23f-ec6a8d1e98f4."},
         {"role": "user", "content": query}
@@ -262,7 +260,7 @@ async def get_tools() -> list[dict[str, Any]]:
     return available_tools
 
 
-class MCPEval:
+class ToolCallAccuracy:
 
     def __init__(self): ...
 
@@ -336,26 +334,20 @@ class MCPEval:
 
 
 if __name__ == "__main__":
-    model_config: dict[str, str] = {
-        "azure_endpoint": os.environ["AZURE_OPENAI_ENDPOINT"],
-        "azure_deployment": MODEL_JUDGE,
-        "api_version": API_VERSION,
-    }
-
-    custom = MCPEval()
+    tool_call_accuracy = ToolCallAccuracy()
 
     test_file = pathlib.Path(__file__).parent / "data.jsonl"
     result = evaluate(
         data=str(test_file),
         evaluators={
-            "mcp": custom,
+            "mcp": tool_call_accuracy,
         },
-        target=evaluate_azure_mcp,
+        target=evaluate_tool_call,
     )
 
-    output_file = pathlib.Path(__file__).parent / ".log" / "evaluation_result.json"
+    output_file = pathlib.Path(__file__).parent / ".log" / "result.json"
     output_file.parent.mkdir(exist_ok=True)
     with open(output_file, "w") as f:
         json.dump(result, f, indent=4)
 
-    display_evaluation_results(result)
+    display_results(result)

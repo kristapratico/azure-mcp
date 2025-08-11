@@ -3,12 +3,12 @@
 
 <#
 .SYNOPSIS
-    Runs Azure MCP evaluations with the specified test type and areas.
+    Runs Azure MCP tool call accuracy with the specified test type and areas.
 
 .DESCRIPTION
-    This script installs requirements and runs the evaluation pipeline consisting of:
+    This script installs requirements and runs the ToolCallAccuracy tool consisting of:
     1. get_latest_e2e.py - generates test data
-    2. run.py - executes evaluations
+    2. run.py - executes tool call accuracy
     
     The script only runs if TF_BUILD environment variable is set to true (CI environment).
 
@@ -19,7 +19,7 @@
     Array of specific areas to test (e.g., 'Storage', 'KeyVault')
 
 .EXAMPLE
-    ./Run-Evals.ps1 -TestType Live -Areas Storage,KeyVault
+    ./Test-ToolCallAccuracy.ps1 -TestType Live -Areas Storage,KeyVault
 #>
 
 [CmdletBinding()]
@@ -31,7 +31,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "Running Azure MCP Evaluations in CI environment" -ForegroundColor Green
+Write-Host "Running Azure MCP tool call accuracy in CI environment" -ForegroundColor Green
 Write-Host "TestType: $TestType" -ForegroundColor Cyan
 if ($Areas) {
     Write-Host "Areas: $($Areas -join ', ')" -ForegroundColor Cyan
@@ -39,21 +39,21 @@ if ($Areas) {
     Write-Host "Areas: All areas" -ForegroundColor Cyan
 }
 
-# Get the repository root and evals directory
+# Get the repository root and ToolCallAccuracy directory
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$EvalsDir = Join-Path $RepoRoot "core/tests/evals"
+$ToolCallDir = Join-Path $RepoRoot "eng/tools/ToolCallAccuracy"
 
-if (-not (Test-Path $EvalsDir)) {
-    Write-Error "Evaluations directory not found: $EvalsDir"
+if (-not (Test-Path $ToolCallDir)) {
+    Write-Error "ToolCallAccuracy directory not found: $ToolCallDir"
     exit 1
 }
 
 Write-Host "Repository Root: $RepoRoot" -ForegroundColor Yellow
-Write-Host "Evaluations Directory: $EvalsDir" -ForegroundColor Yellow
+Write-Host "ToolCallAccuracy Directory: $ToolCallDir" -ForegroundColor Yellow
 Write-Host "Current working directory before change: $(Get-Location)" -ForegroundColor Cyan
 
-# Change to evals directory
-Push-Location $EvalsDir
+# Change to ToolCallAccuracy directory
+Push-Location $ToolCallDir
 Write-Host "Current working directory after change: $(Get-Location)" -ForegroundColor Cyan
 try {
     # Check if Python is available
@@ -83,7 +83,7 @@ try {
     }
 
     # Install requirements
-    Write-Host "Installing evaluation requirements..." -ForegroundColor Yellow
+    Write-Host "Installing ToolCallAccuracy requirements..." -ForegroundColor Yellow
     if (Test-Path "requirements.txt") {
         python -m pip install -r requirements.txt
         if ($LASTEXITCODE -ne 0) {
@@ -128,42 +128,42 @@ try {
         Write-Warning "get_latest_e2e.py not found, skipping test data generation"
     }
 
-    # Step 2: Run run.py to execute evaluations (no arguments needed)
-    Write-Host "Step 2: Running evaluations with run.py..." -ForegroundColor Yellow
+    # Step 2: Run run.py to execute ToolCallAccuracy (no arguments needed)
+    Write-Host "Step 2: Running ToolCallAccuracy with run.py..." -ForegroundColor Yellow
     Write-Host "About to run Python from directory: $(Get-Location)" -ForegroundColor Cyan
     
     if (Test-Path "run.py") {
         Write-Host "Running: python run.py" -ForegroundColor Cyan
         python run.py
-        $evalExitCode = $LASTEXITCODE
+        $toolCallExitCode = $LASTEXITCODE
         
-        if ($evalExitCode -eq 0) {
-            Write-Host "Evaluations completed successfully" -ForegroundColor Green
+        if ($toolCallExitCode -eq 0) {
+            Write-Host "ToolCallAccuracy completed successfully" -ForegroundColor Green
         } else {
-            Write-Error "Evaluations failed with exit code $evalExitCode"
+            Write-Error "ToolCallAccuracy failed with exit code $toolCallExitCode"
         }
         
-        # Check for evaluation results
-        $resultsFile = Join-Path $EvalsDir ".log/evaluation_result.json"
+        # Check for ToolCallAccuracy results
+        $resultsFile = Join-Path $ToolCallDir ".log/result.json"
         if (Test-Path $resultsFile) {
-            Write-Host "Evaluation results saved to: $resultsFile" -ForegroundColor Green
-            
+            Write-Host "ToolCallAccuracy results saved to: $resultsFile" -ForegroundColor Green
+
             # If in Azure DevOps, attach the results file
             if ($env:TF_BUILD -eq 'true') {
-                Write-Host "##vso[task.addattachment type=Distributedtask.Core.Summary;name=Evaluation Results;]$resultsFile"
+                Write-Host "##vso[task.addattachment type=Distributedtask.Core.Summary;name=ToolCallAccuracy Results;]$resultsFile"
             }
         } else {
-            Write-Warning "Evaluation results file not found at: $resultsFile"
+            Write-Warning "ToolCallAccuracy results file not found at: $resultsFile"
         }
         
-        exit $evalExitCode
+        exit $toolCallExitCode
     } else {
-        Write-Error "run.py not found in $EvalsDir"
+        Write-Error "run.py not found in $ToolCallDir"
         exit 1
     }
 
 } catch {
-    Write-Error "An error occurred during evaluation execution: $($_.Exception.Message)"
+    Write-Error "An error occurred during ToolCallAccuracy execution: $($_.Exception.Message)"
     Write-Host "Stack trace: $($_.Exception.StackTrace)" -ForegroundColor Red
     exit 1
 } finally {
