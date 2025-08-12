@@ -283,17 +283,14 @@ finally {
 
 $testExitCode = $LastExitCode
 
-# Run tool call accuracy only in CI (TF_BUILD)
+# Run tool calls per prompt only in CI (TF_BUILD)
 if ($env:TF_BUILD) {
-    # Run tool call accuracy after tests complete (only in pipeline)
-    Write-Host "Running Azure MCP tool call accuracy..." -ForegroundColor Yellow
+    # Run tool calls per prompt after tests complete (only in pipeline)
+    Write-Host "Running Azure MCP tool calls per prompt..." -ForegroundColor Yellow
     try {
-        $runScript = Join-Path $PSScriptRoot "Run-ToolCallAccuracy.ps1"
+        $runScript = Join-Path $PSScriptRoot "Test-ToolCallsPerPrompt.ps1"
         if (Test-Path $runScript) {
             $toolCallParams = @{}
-            if ($TestType) { 
-                $toolCallParams['TestType'] = $TestType
-            }
             if ($Areas) { 
                 $toolCallParams['Areas'] = $Areas
             }
@@ -307,18 +304,18 @@ if ($env:TF_BUILD) {
                 $toolCallExitCode = $LastExitCode
 
                 if ($toolCallExitCode -eq 0) {
-                    Write-Host "Tool call accuracy completed successfully" -ForegroundColor Green
+                    Write-Host "Tool calls per prompt completed successfully" -ForegroundColor Green
                 } else {
-                    Write-Warning "Tool call accuracy completed with exit code $toolCallExitCode (this does not affect the overall test result)"
+                    Write-Warning "Tool calls per prompt completed with exit code $toolCallExitCode (this does not affect the overall test result)"
                 }
             } catch {
-                Write-Warning "Error executing Run-ToolCallAccuracy.ps1: $($_.Exception.Message) (this does not affect the overall test result)"
+                Write-Warning "Error executing Test-ToolCallsPerPrompt.ps1: $($_.Exception.Message) (this does not affect the overall test result)"
             }
         } else {
-            Write-Warning "Run-ToolCallAccuracy.ps1 script not found at $runScript"
+            Write-Warning "Test-ToolCallsPerPrompt.ps1 script not found at $runScript"
         }
     } catch {
-        Write-Warning "Error setting up tool call accuracy: $($_.Exception.Message) (this does not affect the overall test result)"
+        Write-Warning "Error setting up tool calls per prompt: $($_.Exception.Message) (this does not affect the overall test result)"
     }
 }
 

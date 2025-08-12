@@ -28,56 +28,55 @@ client = AzureOpenAI(
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
     api_key=os.environ["AZURE_OPENAI_API_KEY"],
     api_version=API_VERSION,
-    max_retries=5
+    max_retries=5,
 )
 
-server_params = StdioServerParameters(
-    command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None
-)
+server_params = StdioServerParameters(command="npx", args=["-y", "@azure/mcp@latest", "server", "start"], env=None)
+
 
 def display_results(result_data: Any) -> None:
     """Display results in a formatted table using tabulate"""
-    
-    if 'rows' not in result_data:
+
+    if "rows" not in result_data:
         print("No data found in results")
         return
-    
-    rows = result_data['rows']
+
+    rows = result_data["rows"]
     if not rows:
         print("No rows found")
         return
-    
+
     # Define the columns we want to display
     columns = [
-        ('Query', 'inputs.query'),
-        ('Expected (tool, cmd)', 'inputs.expected_tool_calls'),
-        ('Actual  (tool, cmd)', 'outputs.mcp.actual_tool_calls'),
-        ('Tool Count', None),
-        ('Prompt tokens', None),
-        ('Status', 'outputs.mcp.tool_call_accuracy'),
-        ('Score', 'outputs.mcp.score'),
-        ('Reason', 'outputs.mcp.reason')
+        ("Query", "inputs.query"),
+        ("Expected (tool, cmd)", "inputs.expected_tool_calls"),
+        ("Actual  (tool, cmd)", "outputs.mcp.actual_tool_calls"),
+        ("Tool Count", None),
+        ("Prompt tokens", None),
+        ("Status", "outputs.mcp.tool_call_accuracy"),
+        ("Score", "outputs.mcp.score"),
+        ("Reason", "outputs.mcp.reason"),
     ]
-    
+
     # Prepare table data
     table_data = []
     headers = [col_name for col_name, _ in columns]
-    
+
     for row in rows:
         row_data = []
         for col_name, col_key in columns:
             # Special handling for the Tool Count column
-            if col_key is None and col_name == 'Tool Count':
-                actual_count = row.get('outputs.num_tool_calls_actual', 0)
-                expected_count = row.get('outputs.num_tool_calls_expected', 0)
+            if col_key is None and col_name == "Tool Count":
+                actual_count = row.get("outputs.num_tool_calls_actual", 0)
+                expected_count = row.get("outputs.num_tool_calls_expected", 0)
                 value_str = f"{actual_count}/{expected_count}"
             # Special handling for the Tokens column
-            elif col_key is None and col_name == 'Prompt tokens':
-                total_tokens = row.get('outputs.prompt_tokens', 0)
+            elif col_key is None and col_name == "Prompt tokens":
+                total_tokens = row.get("outputs.prompt_tokens", 0)
                 value_str = str(total_tokens)
             else:
-                value = row.get(col_key, 'N/A')
-                
+                value = row.get(col_key, "N/A")
+
                 if isinstance(value, list):
                     # Format lists nicely, especially tuples without quotes
                     formatted_items = []
@@ -88,41 +87,41 @@ def display_results(result_data: Any) -> None:
                             formatted_items.append(f"({', '.join(tuple_items)})")
                         else:
                             formatted_items.append(str(item))
-                    value_str = ', '.join(formatted_items)
-                elif value is None or (isinstance(value, float) and str(value) == 'nan'):
-                    value_str = 'N/A'
+                    value_str = ", ".join(formatted_items)
+                elif value is None or (isinstance(value, float) and str(value) == "nan"):
+                    value_str = "N/A"
                 elif isinstance(value, float):
                     value_str = f"{value:.3f}"
                 else:
                     value_str = str(value)
-            
+
             row_data.append(value_str)
-        
+
         table_data.append(row_data)
-    
+
     # Display the table
     print("\n" + "=" * 80)
     print("RESULTS")
     print("=" * 80)
-    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[20, 12, 12, 4, 4, 5, 5, 15]))
-    
+    print(tabulate(table_data, headers=headers, tablefmt="grid", maxcolwidths=[20, 15, 15, 4, 4, 5, 5, 15]))
+
     # Print metrics summary
-    metrics = result_data.get('metrics', {})
+    metrics = result_data.get("metrics", {})
     print("\n" + "=" * 80)
     print("OVERALL METRICS")
     print("=" * 80)
-    
-    if 'mcp.score' in metrics:
-        score = metrics['mcp.score']
-        threshold = metrics.get('mcp.score_threshold', SCORE_THRESHOLD)
+
+    if "mcp.score" in metrics:
+        score = metrics["mcp.score"]
+        threshold = metrics.get("mcp.score_threshold", SCORE_THRESHOLD)
         status = "PASS" if score >= threshold else "FAIL"
-        
+
         print(f"Overall Score:    {score:.4f}")
         print(f"Score Threshold:  {threshold:.4f}")
         print(f"Status:           {status}")
     else:
         print("No metrics data available")
-    
+
     print("=" * 80)
 
 
@@ -171,7 +170,7 @@ async def make_request(
     available_tools: list[dict[str, Any]],
     tool_calls_made: list[chat.ChatCompletionMessageToolCall],
 ) -> tuple[list, list[chat.ChatCompletionMessageToolCall]]:
-    
+
     tool_messages = []
     for tool_call in tool_calls_made:
         function_args = json.loads(tool_call.function.arguments)
@@ -182,7 +181,7 @@ async def make_request(
             content_item = result.content[0]
             # Try to get text content, fallback to string representation
             try:
-                content = getattr(content_item, 'text', str(content_item))
+                content = getattr(content_item, "text", str(content_item))
             except:
                 content = str(content_item)
 
@@ -194,15 +193,18 @@ async def make_request(
                 "content": content,
             }
         )
-    
+
     messages.extend(tool_messages)
     return messages, tool_calls_made
 
 
 def evaluate_tool_call(query: str, expected_tool_calls: list):
     messages = [
-        {"role": "assistant", "content": "The subscription is Azure SDK Test Resources - TME with subscription ID 4d042dc6-fe17-4698-a23f-ec6a8d1e98f4."},
-        {"role": "user", "content": query}
+        {
+            "role": "assistant",
+            "content": "The subscription is Azure SDK Test Resources - TME with subscription ID 4d042dc6-fe17-4698-a23f-ec6a8d1e98f4.",
+        },
+        {"role": "user", "content": query},
     ]
     available_tools = asyncio.run(get_tools())
 
@@ -260,7 +262,7 @@ async def get_tools() -> list[dict[str, Any]]:
     return available_tools
 
 
-class ToolCallAccuracy:
+class ToolCallsPerPrompt:
 
     def __init__(self): ...
 
@@ -303,12 +305,13 @@ class ToolCallAccuracy:
             all_required_present = all(arg in arguments and arguments[arg] is not None for arg in required)
             correct_params = all_required_present
 
-        tool_called_expected = (
-            any(actual["name"] == expected for actual in tool_calls for expected in expected_tool_calls)
+        tool_called_expected = any(
+            actual["name"] == expected for actual in tool_calls for expected in expected_tool_calls
         )
         command_expected = any(
             actual.get("arguments", {}).get("command") == expected
-            for actual in tool_calls for expected in expected_tool_calls
+            for actual in tool_calls
+            for expected in expected_tool_calls
         )
         called_expected = tool_called_expected and command_expected
         actual_tool_calls = []
@@ -334,13 +337,24 @@ class ToolCallAccuracy:
 
 
 if __name__ == "__main__":
-    tool_call_accuracy = ToolCallAccuracy()
+    tool_calls = ToolCallsPerPrompt()
 
     test_file = pathlib.Path(__file__).parent / "data.jsonl"
+    if not test_file.exists():
+        print(f"Warning: Test data file '{test_file}' does not exist. Creating empty file.")
+        test_file.touch()
+
+    if test_file.stat().st_size == 0:
+        print(
+            f"Warning: Test data file '{test_file}' is empty. Ensure live resources are deployed \
+              and placeholders are mapped. Exiting."
+        )
+        exit(1)
+
     result = evaluate(
         data=str(test_file),
         evaluators={
-            "mcp": tool_call_accuracy,
+            "mcp": tool_calls,
         },
         target=evaluate_tool_call,
     )

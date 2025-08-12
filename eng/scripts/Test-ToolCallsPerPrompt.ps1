@@ -3,56 +3,50 @@
 
 <#
 .SYNOPSIS
-    Runs Azure MCP tool call accuracy with the specified test type and areas.
+    Runs Azure MCP tool calls per prompt tool for live tests.
 
 .DESCRIPTION
-    This script installs requirements and runs the ToolCallAccuracy tool consisting of:
+    This script installs requirements and runs the ToolCallsPerPrompt tool consisting of:
     1. get_latest_e2e.py - generates test data
-    2. run.py - executes tool call accuracy
+    2. run.py - executes tool calls per prompt
     
-    The script only runs if TF_BUILD environment variable is set to true (CI environment).
-
-.PARAMETER TestType
-    The type of tests to run. Valid values: 'Live', 'Unit', 'All'
+    This script is designed to run only for live tests.
 
 .PARAMETER Areas
     Array of specific areas to test (e.g., 'Storage', 'KeyVault')
 
 .EXAMPLE
-    ./Test-ToolCallAccuracy.ps1 -TestType Live -Areas Storage,KeyVault
+    ./Test-ToolCallsPerPrompt.ps1 -Areas Storage,KeyVault
 #>
 
 [CmdletBinding()]
 param(
-    [ValidateSet('Live', 'Unit', 'All')]
-    [string] $TestType = 'Live',
     [string[]] $Areas
 )
 
 $ErrorActionPreference = 'Stop'
 
-Write-Host "Running Azure MCP tool call accuracy in CI environment" -ForegroundColor Green
-Write-Host "TestType: $TestType" -ForegroundColor Cyan
+Write-Host "Running Azure MCP tool calls per prompt for live tests" -ForegroundColor Green
 if ($Areas) {
     Write-Host "Areas: $($Areas -join ', ')" -ForegroundColor Cyan
 } else {
     Write-Host "Areas: All areas" -ForegroundColor Cyan
 }
 
-# Get the repository root and ToolCallAccuracy directory
+# Get the repository root and ToolCallsPerPrompt directory
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$ToolCallDir = Join-Path $RepoRoot "eng/tools/ToolCallAccuracy"
+$ToolCallDir = Join-Path $RepoRoot "eng/tools/ToolCallsPerPrompt"
 
 if (-not (Test-Path $ToolCallDir)) {
-    Write-Error "ToolCallAccuracy directory not found: $ToolCallDir"
+    Write-Error "ToolCallsPerPrompt directory not found: $ToolCallDir"
     exit 1
 }
 
 Write-Host "Repository Root: $RepoRoot" -ForegroundColor Yellow
-Write-Host "ToolCallAccuracy Directory: $ToolCallDir" -ForegroundColor Yellow
+Write-Host "ToolCallsPerPrompt Directory: $ToolCallDir" -ForegroundColor Yellow
 Write-Host "Current working directory before change: $(Get-Location)" -ForegroundColor Cyan
 
-# Change to ToolCallAccuracy directory
+# Change to ToolCallsPerPrompt directory
 Push-Location $ToolCallDir
 Write-Host "Current working directory after change: $(Get-Location)" -ForegroundColor Cyan
 try {
@@ -83,7 +77,7 @@ try {
     }
 
     # Install requirements
-    Write-Host "Installing ToolCallAccuracy requirements..." -ForegroundColor Yellow
+    Write-Host "Installing ToolCallsPerPrompt requirements..." -ForegroundColor Yellow
     if (Test-Path "requirements.txt") {
         python -m pip install -r requirements.txt
         if ($LASTEXITCODE -ne 0) {
@@ -128,8 +122,8 @@ try {
         Write-Warning "get_latest_e2e.py not found, skipping test data generation"
     }
 
-    # Step 2: Run run.py to execute ToolCallAccuracy (no arguments needed)
-    Write-Host "Step 2: Running ToolCallAccuracy with run.py..." -ForegroundColor Yellow
+    # Step 2: Run run.py to execute ToolCallsPerPrompt (no arguments needed)
+    Write-Host "Step 2: Running ToolCallsPerPrompt with run.py..." -ForegroundColor Yellow
     Write-Host "About to run Python from directory: $(Get-Location)" -ForegroundColor Cyan
     
     if (Test-Path "run.py") {
@@ -138,22 +132,22 @@ try {
         $toolCallExitCode = $LASTEXITCODE
         
         if ($toolCallExitCode -eq 0) {
-            Write-Host "ToolCallAccuracy completed successfully" -ForegroundColor Green
+            Write-Host "ToolCallsPerPrompt completed successfully" -ForegroundColor Green
         } else {
-            Write-Error "ToolCallAccuracy failed with exit code $toolCallExitCode"
+            Write-Error "ToolCallsPerPrompt failed with exit code $toolCallExitCode"
         }
         
-        # Check for ToolCallAccuracy results
+        # Check for ToolCallsPerPrompt results
         $resultsFile = Join-Path $ToolCallDir ".log/result.json"
         if (Test-Path $resultsFile) {
-            Write-Host "ToolCallAccuracy results saved to: $resultsFile" -ForegroundColor Green
+            Write-Host "ToolCallsPerPrompt results saved to: $resultsFile" -ForegroundColor Green
 
             # If in Azure DevOps, attach the results file
             if ($env:TF_BUILD -eq 'true') {
-                Write-Host "##vso[task.addattachment type=Distributedtask.Core.Summary;name=ToolCallAccuracy Results;]$resultsFile"
+                Write-Host "##vso[task.addattachment type=Distributedtask.Core.Summary;name=ToolCallsPerPrompt Results;]$resultsFile"
             }
         } else {
-            Write-Warning "ToolCallAccuracy results file not found at: $resultsFile"
+            Write-Warning "ToolCallsPerPrompt results file not found at: $resultsFile"
         }
         
         exit $toolCallExitCode
@@ -163,7 +157,7 @@ try {
     }
 
 } catch {
-    Write-Error "An error occurred during ToolCallAccuracy execution: $($_.Exception.Message)"
+    Write-Error "An error occurred during ToolCallsPerPrompt execution: $($_.Exception.Message)"
     Write-Host "Stack trace: $($_.Exception.StackTrace)" -ForegroundColor Red
     exit 1
 } finally {
