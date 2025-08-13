@@ -79,7 +79,7 @@ try {
     # Install requirements
     Write-Host "Installing ToolCallsPerPrompt requirements..." -ForegroundColor Yellow
     if (Test-Path "requirements.txt") {
-        python -m pip install -r requirements.txt
+        python -m pip install -r requirements.txt -qq
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to install requirements from requirements.txt"
             exit $LASTEXITCODE

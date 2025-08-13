@@ -267,7 +267,7 @@ class ToolCallsPerPrompt:
     def __init__(self): ...
 
     def get_failure_reasons(
-        self, tool_calls, correct_params, called_expected, num_tool_calls_actual, num_tool_calls_expected
+        self, tool_calls, correct_params, called_expected, num_tool_calls_actual, num_tool_calls_expected, params_reason_str
     ):
         reasons = []
 
@@ -277,8 +277,8 @@ class ToolCallsPerPrompt:
         if not called_expected:
             reasons.append("Expected tool was not called")
 
-        if not correct_params:
-            reasons.append("Some parameters are missing or invalid")
+        if not correct_params and params_reason_str:
+            reasons.append(params_reason_str)
 
         if num_tool_calls_actual != num_tool_calls_expected:
             reasons.append(
@@ -287,24 +287,43 @@ class ToolCallsPerPrompt:
 
         return "; ".join(reasons) if reasons else "Passed successfully"
 
-    def __call__(
-        self, tool_calls, tool_definitions, expected_tool_calls, num_tool_calls_actual, num_tool_calls_expected
-    ):
+    def fix_and_parse_tool_json(self, content: str) -> list[dict[str, Any]]:
+        content = "[" + content
+        fixes = [
+            ('\\n', ''),
+            ('\n', ''),
+        ]
+        
+        cleaned = content
+        for old, new in fixes:
+            cleaned = cleaned.replace(old, new)
 
-        correct_params = False
+        return json.loads(cleaned)
+
+    def check_correct_command_params(self, tool_calls, commands) -> str:
+        missing = {}
         for tool_call in tool_calls:
             arguments = tool_call.get("arguments", {})
-            tool_def = [d for d in tool_definitions if d["name"] == tool_call["name"]]
-            if not tool_def:
-                break
+            if not arguments:
+                continue
+            parameters = arguments.get("parameters", {})
+            if not parameters:
+                continue
+            cmd_made = arguments.get("command", "")
+            cmd_def = [d for d in commands if d["name"] == cmd_made]
+            if not cmd_def:
+                continue
+            cmd_def_required = cmd_def[0].get("inputSchema", {}).get("required", [])
+            for req in cmd_def_required:
+                if req not in parameters:
+                    missing[cmd_made] = req
+        if missing:
+            return f"Missing required parameters: {', '.join(f'{req}' for req in missing.values())}"
+        return ""
 
-            tool_def = tool_def[0]
-            parameters = tool_def.get("parameters", {})
-            required = parameters.get("required", [])
-
-            all_required_present = all(arg in arguments and arguments[arg] is not None for arg in required)
-            correct_params = all_required_present
-
+    def __call__(
+        self, tool_calls, tool_definitions, expected_tool_calls, num_tool_calls_actual, num_tool_calls_expected, response
+    ):
         tool_called_expected = any(
             actual["name"] == expected for actual in tool_calls for expected in expected_tool_calls
         )
@@ -314,13 +333,50 @@ class ToolCallsPerPrompt:
             for expected in expected_tool_calls
         )
         called_expected = tool_called_expected and command_expected
-        actual_tool_calls = []
+        params_reason_str = ""
+        correct_params = False
+        if tool_called_expected:
+            missing = {}
+            for tool_call in tool_calls:
+                arguments = tool_call.get("arguments", {})
+                tool_def = [d for d in tool_definitions if d["name"] == tool_call["name"]]
+                if not tool_def:
+                    break
 
+                tool_def = tool_def[0]
+                parameters = tool_def.get("parameters", {})
+                required = parameters.get("required", [])
+
+                all_required_present = all(arg in arguments and arguments[arg] is not None for arg in required)
+                if not all_required_present:
+                    for req in required:
+                        if req not in arguments:
+                            missing[tool_call["name"]] = req
+            if missing:
+                params_reason_str = f"Missing required parameters: {', '.join(f'{req}' for req in missing.values())}"
+                correct_params = False
+            else:
+                correct_params = True
+
+        if command_expected:
+            commands = [res for res in response if res.get("role") == "tool" and res.get("content", "").startswith("Here are the available command")]
+            service_command = "".join(commands[0]["content"].split("[", maxsplit=1)[1:])
+            try:
+                available_commands = self.fix_and_parse_tool_json(service_command)
+            except json.JSONDecodeError:
+                pass
+            else:
+                params_str = self.check_correct_command_params(tool_calls, available_commands)
+                if params_str:
+                    correct_params = False
+                    params_reason_str += "\n" + params_str
+
+        actual_tool_calls = []
         for t in tool_calls:
             actual_tool_calls.append((t["name"], t.get("arguments", {}).get("command")))
 
         reason = self.get_failure_reasons(
-            tool_calls, correct_params, called_expected, num_tool_calls_actual, num_tool_calls_expected
+            tool_calls, correct_params, called_expected, num_tool_calls_actual, num_tool_calls_expected, params_reason_str
         )
         score = (
             (0.5 if called_expected else 0.0)
